@@ -1,0 +1,144 @@
+simulation:
+  duration: 96.0
+  timestep: 0.0005
+  initial_height: 3.0
+  gravity: 9.81
+balloon:
+  dimensions:
+  - 0.45
+  - 0.65
+  - 0.3
+  mesh_file: assets/balloon_87.obj
+  mesh_scale:
+  - 1
+  - 1
+  - 1
+  mesh_rotation_deg:
+  - 0
+  - 0
+  - 0
+  mesh_center: true
+  mesh_fit_dimensions: false
+  volume: 0.07
+  film_mass: 0.026
+  helium_density: 0.166
+  buoyancy_center:
+  - 0
+  - 0
+  - 0
+  inertia_model: solid_ellipsoid
+joint:
+  gap: 0.01
+  mass: 0.022
+  radius: 0.018
+  length: 0.05
+  damping: 0.002
+  kp: 0.3
+  kv: 0.03
+  torque_limit: 0.18
+physics:
+  buoyancy: true
+  neutral: true
+  ballast_position:
+  - 0
+  - 0
+  - -0.15
+  fluid: true
+  fluid_model: mesh_surface
+  surface_drag_coefficient: 1.0
+  air_density: 1.205
+  viscosity: 1.81e-05
+  wind:
+  - 0
+  - 0
+  - 0
+  fluid_coefficients:
+  - 0.5
+  - 0.25
+  - 1.5
+  - 1.0
+  - 1.0
+control:
+  mode: traveling
+  period: 2.0
+  amplitude_deg: 30
+  frequency: 0.5
+  phase_step_deg: -45
+  phases_deg:
+  - 0
+  - 0
+  - 0
+  - 0
+  fixed_deg:
+  - 0
+  - 0
+  - 0
+  - 0
+  bend_fraction: 0.25
+comparison:
+  cases:
+  - name: Tapered 40-30-20-10 / 2s
+    control:
+      mode: expressions
+      period: 2.0
+      amplitude_deg: 30
+      frequency: 0.5
+      phase_step_deg: -45
+      phases_deg:
+      - 0
+      - 0
+      - 0
+      - 0
+      fixed_deg:
+      - 0
+      - 0
+      - 0
+      - 0
+      bend_fraction: 0.25
+      motion_scale: 1.0
+      expression_period: 2.0
+      expressions:
+      - A = 40
+      - T = 2.0
+      - d = -60/360
+      - u(n,t) = (t/T-(n-1)*d)%1
+      - p(n,t) = 2*pi*u(n,t)
+      - x(n,t) = A*((5-n)/4*sin(p(n,t)))
+  - name: Sine 45 / 6s
+    control:
+      mode: traveling
+      period: 6.0
+      amplitude_deg: 45
+      frequency: 0.5
+      phase_step_deg: -60
+      phases_deg:
+      - 0
+      - 0
+      - 0
+      - 0
+      fixed_deg:
+      - 0
+      - 0
+      - 0
+      - 0
+      bend_fraction: 0.75
+      motion_scale: 1.0
+  - name: Sine 20 / 1.5s
+    control:
+      mode: traveling
+      period: 1.5
+      amplitude_deg: 20
+      frequency: 0.5
+      phase_step_deg: -90
+      phases_deg:
+      - 0
+      - 0
+      - 0
+      - 0
+      fixed_deg:
+      - 0
+      - 0
+      - 0
+      - 0
+      bend_fraction: 0.75
+      motion_scale: 1.0
