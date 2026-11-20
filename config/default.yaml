@@ -1,0 +1,46 @@
+simulation:
+  duration: 30.0
+  timestep: 0.002
+  initial_height: 3.0
+  gravity: 9.81
+balloon:
+  dimensions: [0.450, 0.650, 0.300]  # X（並び方向）, Y（長手）, Z（高さ）[m]
+  mesh_file: assets/balloon_87.obj  # 中心・向き・寸法を調整済みのOBJ。nullで自動生成
+  mesh_scale: [1, 1, 1]  # OBJの単位をmに変換（mmなら各0.001）
+  mesh_rotation_deg: [0, 0, 0]  # 固定軸X→Y→Zの順で回転 [deg]
+  mesh_center: true  # バウンディングボックス中心を原点に移す
+  mesh_fit_dimensions: false  # trueで回転後の各軸寸法をdimensionsに合わせる
+  volume: 0.070
+  film_mass: 0.026
+  helium_density: 0.166
+  buoyancy_center: [0, 0, 0]
+  inertia_model: solid_ellipsoid
+joint:
+  gap: 0.010  # 隣接バルーンの端と端の隙間 [m]
+  mass: 0.022
+  radius: 0.018
+  length: 0.050
+  damping: 0.002
+  kp: 0.3
+  kv: 0.03
+  torque_limit: 0.18
+physics:
+  buoyancy: true
+  neutral: false
+  ballast_position: [0, 0, -0.150]  # 下部に取り付ける重りの重心位置 [m]
+  fluid: true
+  fluid_model: mesh_surface  # OBJの各三角形から表面抵抗を計算。ellipsoidで従来方式
+  surface_drag_coefficient: 1.0  # 表面圧力の係数（実測に合わせて調整）
+  air_density: 1.205
+  viscosity: 0.0000181
+  wind: [0, 0, 0]
+  fluid_coefficients: [0.5, 0.25, 1.5, 1.0, 1.0]
+control:
+  mode: traveling
+  period: 2.0  # 全ての動作に共通の1周期 [s]。nullで元の周期・開始待ちを使用
+  amplitude_deg: 30
+  frequency: 0.5  # periodがnullの場合の従来モードの周波数 [Hz]
+  phase_step_deg: -45  # 既定モデルを+Xへ推進させる位相差。+45で逆向き
+  phases_deg: [0, 0, 0, 0]
+  fixed_deg: [0, 0, 0, 0]
+  bend_fraction: 0.25

@@ -1,0 +1,199 @@
+# balloon-studio snapshots, retrieved 2026-11-20. Angles: degrees; time: seconds.
+# period and start_delay describe the original formulas; control.period retimes them.
+air-01:
+  name: 空中推進 01 — 尾側ほど大きい進行波
+  source:
+    project_id: 32975f42-4de4-4661-b767-ad4a2cf1b18a
+    revision: 1
+  description: 根元から振幅5°・10°・15°・20°。関節間位相差60°、根元から尾へ連続する正弦波。空中推進候補の姿勢比較用。5本・4関節、長さ0.3m・幅0.15m（仮寸法）、最大関節角20°、周期8秒。推力・自由浮遊・膜のたわみのシミュレーションは含まない。
+  expressions:
+  - A = 20
+  - N = 4
+  - T = 8
+  - phi = pi/3
+  - a(n) = A*n/N
+  - x(n,t) = a(n)*sin(2*pi*t/T - (n-1)*phi)
+  period: 8.0
+air-02:
+  name: 空中推進 02 — 尾側を強調した緩急波
+  source:
+    project_id: ec7ac08a-fc5b-465c-8553-f40ff3610d52
+    revision: 1
+  description: 根元から振幅5°・10°・15°・20°。3秒で同時に正側へ構え、各関節0.6秒・遅延0.15秒で負側へ振り抜く。3秒で同時に0°へ戻り、0.95秒待機。空中推進候補の姿勢比較用。5本・4関節、長さ0.3m・幅0.15m（仮寸法）、最大関節角20°、周期8秒。推力・自由浮遊・膜のたわみのシミュレーションは含まない。
+  expressions:
+  - A = 20
+  - N = 4
+  - B = 3
+  - F = 0.6
+  - L = 0.15
+  - R = 3
+  - W = 0.95
+  - E = B + F + (N-1)*L
+  - T = E + R + W
+  - c(z) = min(1, max(0, z))
+  - h(z) = (1-cos(pi*c(z)))/2
+  - u(t) = t - T*floor(t/T)
+  - a(n) = A*n/N
+  - x(n,t) = a(n)*(h(u(t)/B) - 2*h((u(t)-B-(n-1)*L)/F) + h((u(t)-E)/R))
+  period: 8.0
+air-03:
+  name: 空中推進 03 — S字を経由して戻す
+  source:
+    project_id: b2a8935a-de28-4240-9c3f-927d74314b3a
+    revision: 2
+  description: 全関節を3秒で+20°へ構え、各関節0.6秒・遅延0.15秒で−20°へ振り抜く。戻りは1.2秒で交互の+20°・−20°へ変形し、1.8秒で全関節0°へ伸ばす。0.95秒待機。往路と復路で異なる形の経路を通す候補。±20°での浅いS字とし、大きく折り畳む動作ではない。空中推進候補の姿勢比較用。5本・4関節、長さ0.3m・幅0.15m（仮寸法）、最大関節角20°、周期8秒。推力・自由浮遊・膜のたわみのシミュレーションは含まない。
+  expressions:
+  - A = 20
+  - N = 4
+  - B = 3
+  - F = 0.6
+  - L = 0.15
+  - R = 3
+  - W = 0.95
+  - E = B + F + (N-1)*L
+  - T = E + R + W
+  - c(z) = min(1, max(0, z))
+  - h(z) = (1-cos(pi*c(z)))/2
+  - u(t) = t - T*floor(t/T)
+  - C = 1.2
+  - k(n) = cos(pi*(n-1))
+  - x(n,t) = A*(h(u(t)/B) - 2*h((u(t)-B-(n-1)*L)/F) + (1+k(n))*h((u(t)-E)/C) - k(n)*h((u(t)-E-C)/(R-C)))
+  period: 8.0
+air-04:
+  name: 空中推進 04 — 尾側2関節だけで振る
+  source:
+    project_id: 39e4dc05-35d4-4414-af4d-d45f3851bbef
+    revision: 2
+  description: 前側2関節は0°を保持。後ろ2関節のみ振幅10°・20°、位相差60°で正弦波を送る。前側の姿勢を保ち、尾側の効果を比較する候補。空中推進候補の姿勢比較用。5本・4関節、長さ0.3m・幅0.15m（仮寸法）、最大関節角20°、周期8秒。推力・自由浮遊・膜のたわみのシミュレーションは含まない。
+  expressions:
+  - A = 20
+  - T = 8
+  - phi = pi/3
+  - a(n) = A*max(0, n-2)/2
+  - x(n,t) = a(n)*sin(2*pi*t/T - max(0,n-3)*phi)
+  period: 8.0
+air-05:
+  name: 空中推進 05 — 包絡付き尾側進行波
+  source:
+    project_id: c764fc5d-a659-488c-830e-cdceb0061c5a
+    revision: 2
+  description: 空中推進の実験候補。角度上限20°。周期境界は全関節0°。推力は未検証。servo-waveの追加パターンと同じ式。
+  expressions:
+  - T = 8
+  - u(t) = t/T-floor(t/T)
+  - x(n,t) = 5*n*sin(pi*u(t))*sin(pi*u(t))*sin(2*pi*u(t)-(n-1)*pi/3)
+  period: 8.0
+air-06:
+  name: 空中推進 06 — 左右交互の緩急波
+  source:
+    project_id: 036d4326-6408-4a7c-a074-dbeec0d33aa7
+    revision: 1
+  description: 空中推進の実験候補。角度上限20°。周期境界は全関節0°。推力は未検証。servo-waveの追加パターンと同じ式。
+  expressions:
+  - T = 16
+  - h(z) = (1-cos(pi*min(1,max(0,z))))/2
+  - u(t) = t/T-floor(t/T)
+  - v(t) = 16*u(t)-8*floor(2*u(t))
+  - d(t) = cos(pi*floor(2*u(t)))
+  - x(n,t) = d(t)*5*n*(h(v(t)/3)-2*h((v(t)-3-(n-1)*0.15)/0.6)+h((v(t)-4.05)/3))
+  # x(n,t+8) = -x(n,t); the full signed waveform repeats after 16 s.
+  period: 16.0
+air-07:
+  name: 空中推進 07 — 前後逆位相の尾振り
+  source:
+    project_id: c67885ac-a95c-4d96-8b95-ceeb43effe38
+    revision: 1
+  description: 空中推進の実験候補。角度上限20°。周期境界は全関節0°。推力は未検証。servo-waveの追加パターンと同じ式。
+  expressions:
+  - T = 8
+  - u(t) = t/T-floor(t/T)
+  - a(n) = 20*cos(pi*floor((n-1)/2))
+  - x(n,t) = a(n)*sin(pi*u(t))*sin(pi*u(t))*sin(2*pi*u(t)-floor((n-1)/2)*pi/3)
+  period: 8.0
+air-08:
+  name: 空中推進 08 — 逆順に戻す緩急波
+  source:
+    project_id: ae93475f-a308-44a3-a5c0-0249ba230fcb
+    revision: 3
+  description: 緩急と形状経路の非対称性を比較する実験候補。最大20°、8秒周期。推進力は未検証。質量・浮力・抵抗はStudio既定値。
+  expressions:
+  - T = 8
+  - h(z) = (1-cos(pi*min(1,max(0,z))))/2
+  - u(t) = 8*(t/T-floor(t/T))
+  - g(n,v) = 5*n*(h(v/2.5)-2*h((v-2.5-(n-1)*0.15)/0.5)+h((v-3.45-(4-n)*0.35)/3))
+  - x(n,t) = g(n,u(t))
+  period: 8.0
+air-09:
+  name: 空中推進 09 — S字回復の非対称波
+  source:
+    project_id: efc2df13-d7a7-437c-bc1d-6293062fb1fc
+    revision: 1
+  description: 緩急と形状経路の非対称性を比較する実験候補。最大20°、8秒周期。推進力は未検証。質量・浮力・抵抗はStudio既定値。
+  expressions:
+  - T = 8
+  - h(z) = (1-cos(pi*min(1,max(0,z))))/2
+  - u(t) = 8*(t/T-floor(t/T))
+  - g(n,v) = 5*n*(h(v/2.5)-2*h((v-2.5-(n-1)*0.15)/0.5)+(1+0.5*cos(pi*(n-1)))*h((v-3.45)/1.5)-0.5*cos(pi*(n-1))*h((v-4.95)/2.5))
+  - x(n,t) = g(n,u(t))
+  period: 8.0
+air-10:
+  name: 空中推進 10 — 小さく構えて強く振る波
+  source:
+    project_id: 4c257e6f-124b-4272-8208-dc7ae77fbbca
+    revision: 2
+  description: 緩急と形状経路の非対称性を比較する実験候補。最大20°、8秒周期。推進力は未検証。質量・浮力・抵抗はStudio既定値。
+  expressions:
+  - T = 8
+  - h(z) = (1-cos(pi*min(1,max(0,z))))/2
+  - u(t) = 8*(t/T-floor(t/T))
+  - g(n,v) = 5*n*(0.5*h(v/2.5)-1.5*h((v-2.5-(n-1)*0.15)/0.5)+h((v-3.45)/4))
+  - x(n,t) = g(n,u(t))
+  period: 8.0
+paddle:
+  name: servo-wave 9 — Paddle
+  source:
+    project_id: 45787ca4-57b9-4e64-a08b-5d1f681b991d
+    revision: 11
+  description: 全4関節が同時に0→−45→0度。元周期5秒、押し1秒、戻り4秒（20:80）、半コサイン補間。Studio取得時の起動待ち3秒をローカルで削除し、時刻0から動作する。寸法・実機負荷は含まない。
+  expressions:
+  - A = 45
+  - T = 5
+  - s = 0.2
+  - D = 1
+  - u(t) = t/T - floor(t/T)
+  - q(t) = min(u(t)/s, 1) + max(u(t)-s, 0)/(1-s)
+  - x(n,t) = -D*A*(1-cos(pi*q(t)))/2
+  period: 5.0
+slow-sweep:
+  name: 進行波 — ゆっくり構えて、振り抜く
+  source:
+    project_id: fff8f1f9-39f8-4e25-bdcd-5e83b6e11901
+    revision: 3
+  description: 4関節・5本のバルーン。全関節0°から3秒で同時に+60°へ曲げる。根元から先端へ0.15秒ずつ遅らせ、各関節0.6秒で+60°から−60°へ振り抜く。全関節が−60°に達した4.05秒から3秒で同時に0°へ戻る。0°で0.95秒待機し8秒周期。全区間は半コサイン補間。バルーン長0.3m・幅0.15mは仮寸法。角度指令のプレビューで実機の慣性・たわみは含まない。
+  expressions:
+  - A = 20
+  - N = 4
+  - B = 3
+  - F = 0.6
+  - L = 0.15
+  - R = 3
+  - W = 0.95
+  - E = B + F + (N-1)*L
+  - T = E + R + W
+  - c(z) = min(1, max(0, z))
+  - h(z) = (1-cos(pi*c(z)))/2
+  - u(t) = t - T*floor(t/T)
+  - x(n,t) = A*h(u(t)/B) - 2*A*h((u(t)-B-(n-1)*L)/F) + A*h((u(t)-E)/R)
+  period: 8.0
+wave-01:
+  name: Wave Motion 01
+  source:
+    project_id: 0bccc534-4015-403a-90ff-fdab102199e3
+    revision: 1
+  description: ''
+  expressions:
+  - A = 30
+  - f = 0.5
+  - phi = pi/3
+  - x(n,t) = A*sin(2*pi*f*t + (n-1)*phi)
+  period: 2.0

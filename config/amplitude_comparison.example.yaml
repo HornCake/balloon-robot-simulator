@@ -1,0 +1,24 @@
+# Common 2-second cycles; stored waveforms are used without straight-return correction.
+extends: default.yaml
+simulation:
+  duration: 32.0
+physics:
+  neutral: true
+comparison:
+  cases:
+  - name: wave-01 x1
+    control:
+      pattern: wave-01
+      motion_scale: 1.0000000000000002
+  - name: wave-01 x2
+    control:
+      pattern: wave-01
+      motion_scale: 2.0000000000000004
+  - name: air-07 20deg
+    control:
+      pattern: air-07
+      motion_scale: 1.0469976020949725
+  - name: air-07 60deg
+    control:
+      pattern: air-07
+      motion_scale: 3.1409928062849173

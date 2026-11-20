@@ -1,0 +1,23 @@
+# uv run mjpython -m src.main --config config/comparison.example.yaml --compare --realtime
+# 各ケースはdefault.yamlを継承。同じ方式を何個でも追加できます。
+extends: default.yaml
+comparison:
+  cases:
+    - name: Ellipsoid
+      fluid_model: ellipsoid
+    - name: Mesh1
+      fluid_model: mesh_surface
+      balloon:
+        mesh_file: assets/balloon_87.obj
+    - name: Mesh2-capsule
+      fluid_model: mesh_surface
+      balloon:
+        mesh_file: assets/balloon.obj
+        mesh_fit_dimensions: true
+    # Mesh1～Mesh3だけを比較したい場合はEllipsoidを削除し、下のケースを追加。
+    # - name: Mesh3
+    #   fluid_model: mesh_surface
+    #   balloon:
+    #     mesh_file: /absolute/path/to/another.obj
+    #     mesh_rotation_deg: [0, 0, 90]
+    #     mesh_fit_dimensions: true

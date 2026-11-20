@@ -1,0 +1,25 @@
+name: Tests
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.16'
+          python-version: '3.12'
+      - run: uv sync --locked
+      - run: uv run --locked pytest -q
+      - name: Smoke test single and comparison runs
+        run: |
+          uv run --locked python -m src.main --headless --duration 0.01 --plot --output output/smoke
+          uv run --locked python -m src.main --headless --compare --duration 0.01 --plot --output output/comparison

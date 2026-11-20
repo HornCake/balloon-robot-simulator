@@ -1,0 +1,12 @@
+extends: default.yaml
+comparison:
+  cases:
+    - name: air-01
+      control:
+        pattern: air-01
+    - name: air-04
+      control:
+        pattern: air-04
+    - name: air-10
+      control:
+        pattern: air-10
