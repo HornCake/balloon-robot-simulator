@@ -6,6 +6,8 @@ MuJoCoで5つのヘリウムバルーンを4つのY軸回転関節で接続し�
 
 ```sh
 uv sync --locked
+# メニューで動作と実行方法を選択（macOS）
+uv run mjpython -m src.main -i
 # 画面なしで30秒計算、CSVとグラフを生成
 uv run python -m src.main --headless --plot
 # macOSのViewer（メインスレッドのためmjpythonを使用）
@@ -21,6 +23,10 @@ uv run python -m src.main --headless --mode asymmetric --export-model
 uv run pytest
 ```
 
+引数なしで起動すると、そのままシミュレーションが始まります。`-i`（`--interactive`）を付けると、実行方法と動作パターンを一画面で設定できます。幅80桁以上では用途別の設定を2列に表示します。`-i --neutral --period 2` のように併記した値は選択済みの初期値になります。矢印キーまたは `hjkl` で移動し、Tabで次の分類へ進み、Spaceで設定を変更します。同じ画面で `--neutral`（中性浮力）などのフラグを切り替えられます。`--duration` や出力先はSpaceで入力を開始し、Enterで値を確定します。パターンを複数選ぶと比較できます。Enterで実行、`q` で終了します。
+
+選択中の項目の説明は、画面下部の区切り線の下に表示されます。対応する端末では、マウスカーソルを項目に重ねると説明が切り替わり、左クリックで設定を変更できます。
+
 Viewerは単独表示・比較表示とも、起動時に画面の作業領域いっぱいへ拡大します。macOSではメニューバーとDockを避けた通常ウィンドウで開きます。従来サイズで開く場合は`--windowed`を追加してください。起動後は通常どおり手動でサイズを変更できます。
 
 単独表示では画面左下に`Horizontal distance`（初期全体重心からの水平移動距離）と`X displacement`（符号付きX変位）をm単位で表示します。水平移動距離は`√(dx²+dy²)`で、上昇分や往復を足し合わせた道のりは含めません。カメラの向きにかかわらず物理座標で測り、Rでリセットすると0に戻ります。停止・待機・計算終了後も表示し、`--headless`でも終了時に同じ2項目を出力します。
@@ -33,14 +39,96 @@ Viewerは単独表示・比較表示とも、起動時に画面の作業領域�
 
 ```sh
 # 停止状態で開き、Spaceを押したら開始
-uv run mjpython -m src.main --compare --realtime --start-paused
+uv run mjpython -m src.main --compare-fluid --realtime --start-paused
 # 初期状態を5秒間表示してから自動開始
-uv run mjpython -m src.main --compare --realtime --start-delay 5
+uv run mjpython -m src.main --compare-fluid --realtime --start-delay 5
 ```
 
 待機中は物理計算・シミュレーション時刻を進めず、カメラ操作やFでの表示切替ができます。`--start-delay`はウィンドウが開いてからの実時間[秒]で、Spaceを押すと待機をスキップして開始します。どちらも指定しなければ従来どおり即時開始します。2つのオプションは同時指定できません。Rでリセットすると指定した停止状態または待機時間からやり直します。待機時間は`--duration`に含めません。`--headless`では`--start-delay`を使えますが、Space入力ができないため`--start-paused`は使用できません。
 
-`--realtime`なしでは高速計算します。指定時間（デフォルト30秒）に達すると計算を止め、Viewerは最後の状態を表示したまま残ります。終了後もカメラ操作やRでのリセットができ、ウィンドウを閉じるとプログラムが終了します。`--plot`のグラフ生成もウィンドウを閉じた後に行います。ViewerはSpaceで一時停止・再開、Rでリセット、1で俯瞰、2で側面、3で追従。Fで空気抵抗用の形状の表示をオン・オフできます（初期状態はオフ）。表示中は空力形状を半透明のオレンジ色にし、外観メッシュを薄くします。デフォルトの表面抵抗方式ではOBJと同じ形状、従来方式では楕円体が表示されます。これは形状の表示切替であり、空気抵抗の有効・無効は変更しません。マウスでカメラを操作できます。リセット後もCSVに追記し、時刻が0に戻る行が新しい試行の開始です。実行ごとに異なる`--output`を指定すると結果を保存できます。同じ出力先では上書きします。
+`--realtime`なしでは高速計算します。指定時間（デフォルト30秒）に達すると計算を止め、Viewerは最後の状態を表示したまま残ります。終了後もカメラ操作やRでのリセットができ、ウィンドウを閉じるとプログラムが終了します。`--plot`のグラフ生成もウィンドウを閉じた後に行います。ViewerはSpaceで一時停止・再開、Rでリセット、1で俯瞰、2で側面、3で追従。Fで空気抵抗用の形状の表示をオン・オフできます（初期状態はオフ）。表示中は空力形状を半透明のオレンジ色にし、外観メッシュを薄くします。デフォルトの表面抵抗方式ではOBJと同じ形状、従来方式では楕円体が表示されます。これは形状の表示切替であり、空気抵抗の有効・無効は変更しません。マウスでカメラを操作できます。CSVには新しく計算したステップだけを追記します。実行ごとに異なる`--output`を指定すると結果を保存できます。同じ出力先では上書きします。
+
+## 起動オプション一覧
+
+`-i` では「開始方法」「重りの配分」「関節の動き」「比較対象」をそれぞれ1項目にまとめています。項目を開いて番号を選び、必要に応じて値を入力します。CLIでも各項目内の指定方法は1つだけ選べます。
+
+### 起動と時間
+
+| オプション | 説明 |
+|---|---|
+| `-h` / `--help` | 起動オプションの一覧を表示して終了する。 |
+| `-i` / `--interactive` | メニューで起動時の設定を選ぶ。 |
+| `--config FILE` | シミュレーションの設定を指定したYAMLファイルから読み込む。 既定は `config/default.yaml`。 |
+| `--headless` | ビューアーを開かずにシミュレーションを実行する。 |
+| `--realtime` | シミュレーション内の時間が実時間と同じ速さで進むように調整する。 |
+| `--start-paused` | 一時停止した状態でビューアーを開く。スペースキーで計算を開始する。 |
+| `--start-delay 秒` | 指定した秒数だけ初期状態で待ってから計算を開始する。 |
+| `--duration 秒` | シミュレーション内の計算時間を秒で指定する。 |
+
+### 浮力と姿勢
+
+| オプション | 説明 |
+|---|---|
+| `--no-buoyancy` | バルーンにかかる浮力を無効にする。 |
+| `--neutral` | 重りを加え、浮力と重力がつり合うようにする。 |
+| `--tilt-deg 度` | 指定角度で開始し、その角度でつり合うように重りを自動配分する。正なら5番側が上がる。単独指定で関節を直線に固定。 |
+| `--ballast-ratios 比1 比2 比3 比4 比5` | 中性浮力の重りを1〜5番（+X方向）の順に配分する。例: 3 2 1 1 1 で1番側が下がる。 |
+
+### 空力
+
+| オプション | 説明 |
+|---|---|
+| `--no-fluid` | 空気から受ける力を無効にする。 |
+| `--fluid-model 方式` | 空気抵抗の計算方式を楕円体とメッシュ表面から選ぶ。 選択肢は`ellipsoid`、`mesh_surface`。 |
+
+### 関節動作
+
+| オプション | 説明 |
+|---|---|
+| `--mode 方式` | 関節の制御方式を固定・正弦波・進行波・非対称波から選ぶ。 選択肢は`fixed`、`sine`、`traveling`、`asymmetric`。 |
+| `--pattern ID` | 登録済みの関節動作パターンを1つ選ぶ。 |
+| `--list-patterns` | 登録済みの動作パターンを一覧表示して終了する。 |
+| `--motion-scale 倍率` | 全関節の目標角度に0以上の倍率を掛け、その後±90度に収める。 |
+| `--period 秒` | 動作1周期の長さを秒で指定する。既定の設定ファイルでは2秒。 |
+| `--phase-step-deg 度` | 隣り合う関節の位相差を度で指定する。既定の進行波は−45度で+X方向に進む。 |
+
+### 比較
+
+| オプション | 説明 |
+|---|---|
+| `--compare-fluid [方式 …]` / `--compare [方式 …]` | 空力モデルを比較する。値を省くと設定ファイルの比較ケースを使い、未設定なら両方式を使う。 選択肢は`ellipsoid`、`mesh_surface`。 |
+| `--compare-config FILE …` | 複数のYAML設定を比較する。時間刻みと計算時間はすべて同じ値にする。 |
+| `--compare-patterns ID …` | 指定した動作パターンごとにロボットを個別に計算し、並べて表示する。 |
+| `--focus-case 番号` | 1から数えて指定した比較ケースだけを表示する。 |
+| `--side-all` | 全比較ケースを真横から同時に表示する。ビューアーではAキーで切り替える。 |
+
+### カメラと表示
+
+| オプション | 説明 |
+|---|---|
+| `--windowed` | ビューアーを従来のウィンドウサイズで開く。 |
+| `--camera 視点` | 起動時のカメラを斜め・真横・追従・真上から選ぶ。 選択肢は`overview`、`side`、`follow`、`top`。 |
+| `--projection 方式` | 透視投影か平行投影を選ぶ。既定では真上が平行投影、それ以外が透視投影。 選択肢は`perspective`、`orthographic`。 |
+| `--x-direction 向き` | ビューアーを開いたとき、ワールド座標の+X方向を画面の左と右のどちらに向けるか指定する。 選択肢は`left`、`right`。 |
+
+### 形状
+
+| オプション | 説明 |
+|---|---|
+| `--mesh OBJ` | バルーンの形状に使うOBJファイルを指定する。元ファイルは保持される。 |
+| `--dimensions X Y Z` | バルーンの物理寸法をX、Y、Z軸の順にメートルで指定する。 |
+| `--mesh-scale X Y Z` | 読み込んだOBJの拡大・縮小倍率をX、Y、Z軸の順に指定する。 |
+| `--mesh-rotation RX RY RZ` | 固定したX、Y、Z軸まわりのOBJの回転角を度で指定する。 |
+| `--mesh-center` / `--no-mesh-center` | メッシュを囲む直方体の中心がローカル座標の原点に来るように移動する。 |
+| `--fit-mesh` | 回転後のメッシュの外寸をバルーンの物理寸法に合わせる。 |
+
+### 保存
+
+| オプション | 説明 |
+|---|---|
+| `--output DIR` | 軌跡データ・設定・グラフの保存先を指定する。 既定は `output/run`。 |
+| `--plot` | 実行後にシミュレーション結果のグラフを生成する。 |
+| `--export-model` | 生成したMuJoCoのXMLとメッシュをmodels/に保存する。 |
 
 ## 登録済みの関節動作と同時比較
 
@@ -56,7 +144,7 @@ uv run mjpython -m src.main --compare-patterns air-01 air-04 air-10 --start-paus
 # 計算結果をCSVと比較グラフへ保存
 uv run python -m src.main --compare-patterns air-01 air-04 air-10 --headless --plot --output output/motions
 # YAMLで比較対象を登録する場合
-uv run mjpython -m src.main --config config/motion_comparison.example.yaml --compare --realtime
+uv run mjpython -m src.main --config config/motion_comparison.example.yaml --compare-fluid --realtime
 ```
 
 | ID | 動作 |
@@ -116,7 +204,7 @@ control:
 ```sh
 uv run mjpython -m src.main --neutral --pattern air-02 --motion-scale 3 --start-paused --realtime
 # wave-01の倍率1/2とair-07の20/60度を、中性浮力で同時比較
-uv run mjpython -m src.main --config config/amplitude_comparison.example.yaml --compare --start-paused --realtime
+uv run mjpython -m src.main --config config/amplitude_comparison.example.yaml --compare-fluid --start-paused --realtime
 ```
 
 YAMLでは`control.motion_scale`で指定できます。既定値は1、0なら全関節0度、負の値は指定できません。従来の制御モードにも適用でき、倍率をかけた後の目標角は±90度に制限します。`--compare-patterns`と併用すると全ケースに同じ倍率を適用します。異なる倍率を同時比較する場合は`comparison.cases`内の`control`に`pattern`と`motion_scale`をそれぞれ指定してください。大きな目標角でも実角度が同じだけ増えるとは限らず、トルク上限と負荷によって追従が遅れます。
@@ -132,7 +220,7 @@ uv run python -m src.search_motion --workers 4 --output output/motion_search
 uv run python -m src.refine_motion_search output/motion_search --workers 4
 uv run python -m src.report_motion_search output/motion_search
 # 最終候補と従来条件を同時再生
-uv run mjpython -m src.main --config output/motion_search/final_comparison.yaml --compare --start-paused --realtime
+uv run mjpython -m src.main --config output/motion_search/final_comparison.yaml --compare-fluid --start-paused --realtime
 ```
 
 一次探索は中性浮力・楕円体抵抗で16秒、候補の再評価は既定のOBJ表面抵抗で32秒です。上位だけでなく各波形・周期の候補も再評価します。追加探索では上位3波形の角度・周期・位相の近傍、20度以下の候補、従来条件（30度・2秒・−45度）、無駆動条件を比較します。上位は64秒・時間刻み2/1 msで確認し、最終首位は0.5 msでも検証します。中性浮力なしの結果も別に記録します。
@@ -156,17 +244,17 @@ uv run mjpython -m src.main --config output/motion_search/final_comparison.yaml 
 同じOBJの楕円体方式とメッシュ表面方式をY軸方向に並べる場合：
 
 ```sh
-uv run mjpython -m src.main --compare ellipsoid mesh_surface --realtime
+uv run mjpython -m src.main --compare-fluid ellipsoid mesh_surface --realtime
 ```
 
-比較対象は起動オプションまたはYAMLで任意の数を選択できます。同じ方式を複数指定することもできます。`--compare`だけならYAMLの`comparison.cases`を使い、ケース一覧がなければ楕円体とメッシュ表面の2ケースになります。通常起動は単独表示のままです。
+比較対象は起動オプションまたはYAMLで任意の数を選択できます。同じ方式を複数指定することもできます。`--compare-fluid`だけならYAMLの`comparison.cases`を使い、ケース一覧がなければ楕円体とメッシュ表面の2ケースになります。通常起動は単独表示のままです。
 
 モデルごとにOBJ・向き・寸法・抵抗係数を変える場合は`config/comparison.example.yaml`をコピーして編集します。付属の例は「楕円体＋balloon_87＋カプセル」の3ケースで、そのまま実行できます。
 
 ```sh
-uv run mjpython -m src.main --config config/comparison.example.yaml --compare --realtime
+uv run mjpython -m src.main --config config/comparison.example.yaml --compare-fluid --realtime
 # GUIなしで比較し、個別グラフと重ね合わせグラフを生成
-uv run python -m src.main --config config/comparison.example.yaml --compare --headless --plot --output output/compare
+uv run python -m src.main --config config/comparison.example.yaml --compare-fluid --headless --plot --output output/compare
 ```
 
 例えば「メッシュ1＋メッシュ2＋メッシュ3」だけを使う設定は次の形です。`mesh_file`を実際のファイルに置き換えてください。
@@ -209,13 +297,13 @@ Space・R・カメラ切替は全ケース共通です。1は斜めからの透�
 
 ```sh
 # 以前と同じ斜めの透視表示で、停止状態から開始
-uv run mjpython -m src.main --compare --camera overview --start-paused --realtime
+uv run mjpython -m src.main --compare-fluid --camera overview --start-paused --realtime
 # 比較ケース2を真横から確認
-uv run mjpython -m src.main --compare --camera side --focus-case 2 --start-paused --realtime
+uv run mjpython -m src.main --compare-fluid --camera side --focus-case 2 --start-paused --realtime
 # 真横から全ケースを色分けして同時比較
-uv run mjpython -m src.main --compare --camera side --side-all --start-paused --realtime
+uv run mjpython -m src.main --compare-fluid --camera side --side-all --start-paused --realtime
 # 真上表示、+Xが画面右になる向き
-uv run mjpython -m src.main --compare --camera top --x-direction right --start-paused --realtime
+uv run mjpython -m src.main --compare-fluid --camera top --x-direction right --start-paused --realtime
 ```
 
 物理計算はケースごとに独立しており、横並びのオフセットは表示にだけ適用します。CSV座標に表示オフセットは入りません。全ケースの時間刻み・実行時間は揃える必要があります。計算負荷はケース数とメッシュの面数に応じて増えます。
@@ -240,7 +328,10 @@ uv run mjpython -m src.main --compare-config config/model1.yaml config/model2.ya
 - 質量：膜26 gとヘリウム11.62 gを各バルーンに設定し、関節22 gを接続先の4剛体にそれぞれ1回だけ加算。合計276.1 g。
 - 慣性：均質楕円体と関節円柱を合成し、平行軸の定理で部品質量の位置を反映。`src/model.py`の`composite`とバルーン慣性生成を分離してあり、シェル・実測モデルは未実装です。
 - 浮力：外観と独立した70 Lから各0.8274735 Nを計算。ローカル浮力中心をワールド座標へ変換し、その位置に外力を適用。ヘリウム重量は剛体質量に含まれるため再度差し引きません。
-- 中性浮力：合計145.65 gの追加バラストを5体に均等配分。各バルーン下部（中心から150 mm下）に29.13 gずつ配置します。位置は中心基準の`ballast_position`で変更でき、点質量として扱い、重心・慣性に反映します。総浮力と総重量の一致は姿勢の静的釣り合いを保証しません。関節部品による重心偏りで回転は起こり得ます。
+- 傾斜角の指定：`uv run mjpython -m src.main --tilt-deg 20 --camera side --realtime` で、水平から5番側が20度上がるように重りを自動配分します。負の角度では1番側が上がります。角度だけを指定すると関節を直線に固定し、指定角度でつり合う姿勢から開始します。リセット時も同じ角度に戻ります。動作パターンを併用した場合は運動に伴って姿勢が変化します。
+- 斜めからのU字動作：`uv run mjpython -m src.main --tilt-deg 20 --pattern paddle --period 2 --camera side --start-paused --realtime` で初期姿勢を確認し、スペースキーで開始します。4関節が同じ向きに曲がり、中央の3番を挟んで両端が持ち上がります。既定モデルで6周期後の重心は水平の+X方向に約7.3 cm、鉛直下向きに約30.7 cm移動しました。
+- 高度を保って+Xへ進むU字動作：`uv run mjpython -m src.main --config config/u_paddle_level.yaml --camera side --start-paused --realtime`。初期傾斜−14.5度、周期3秒。関節1〜4の最大指令角の大きさを65度から19.5度まで順に小さくし、曲げ始めもずらします。既定の無風モデルで60秒間に重心が+Xへ約3.14 m進み、高度は初期値の約±2 cm以内でした。初期角度を調整する場合は設定ファイルの `physics.tilt_deg`、周期は `control.period` を変更します。
+- 中性浮力：既定の配分比は均等で、合計145.65 gの追加バラストを5体に配分します。`--ballast-ratios 3 2 1 1 1` を指定すると中性浮力が有効になり、総重量を保ったまま1番側が下がります。5番側を下げるには順序を逆にします。YAMLでは `physics.neutral: true` と `physics.ballast_ratios` で設定できます。既定の配分では各バルーン下部（中心から150 mm下）に29.13 gずつ配置します。位置は中心基準の`ballast_position`で変更でき、点質量として扱い、重心・慣性に反映します。総浮力と総重量の一致は姿勢の静的釣り合いを保証しません。関節部品による重心偏りで回転は起こり得ます。
 - 空力：デフォルトは`physics.fluid_model: mesh_surface`。OBJの各三角形の面積・外向き法線・重心位置から、表面圧力による抵抗とモーメントを計算します。局所速度には並進、回転、関節運動、風を含めます。二次抵抗は独自に適用し、MuJoCo側の流体密度を0にして二重加算を防ぎます。粘性抵抗のみMuJoCoの楕円体近似を併用します。`--no-fluid`ですべての空力を無効化します。浮力用の空気密度は保持します。
 - 高さ0 mに市松模様の地面を表示します。表示専用で衝突・支持拘束はなく、落下時は地面を通過します。自由基部＋4回転関節で計10自由度。SG90の詳細モデルやCFD、膜変形、空力干渉は含みません。
 
@@ -282,7 +373,7 @@ balloon:
 
 ```sh
 uv run mjpython -m src.main --mesh /path/to/another.obj --mesh-rotation 0 0 90 --fit-mesh --realtime
-uv run mjpython -m src.main --mesh /path/to/another.obj --fit-mesh --compare ellipsoid mesh_surface --realtime
+uv run mjpython -m src.main --mesh /path/to/another.obj --fit-mesh --compare-fluid ellipsoid mesh_surface --realtime
 ```
 
 OBJの変更は外観と表面抵抗方式の空力形状に適用します。質量・慣性・浮力はOBJから自動計算しません。`dimensions`は慣性・接続間隔と従来方式の空力形状、`volume`は浮力、`film_mass`は膜質量を決めるので、実物に合わせて別途設定してください。ロボット全体のOBJは、そのままでは関節ごとに動きません。バルーン単位に分割して使う必要があります。
@@ -300,7 +391,7 @@ OBJの変更は外観と表面抵抗方式の空力形状に適用します。�
 ```sh
 uv run --locked pytest -q
 uv run --locked python -m src.main --headless --duration 0.01 --plot --output output/smoke
-uv run --locked python -m src.main --headless --compare --duration 0.01 --plot --output output/comparison
+uv run --locked python -m src.main --headless --compare-fluid --duration 0.01 --plot --output output/comparison
 ```
 
 GitHub ActionsはpushとPull Requestで、Linux・Python 3.12のテストと、単独・比較モードのCSV／グラフ生成を実行します。Viewerの操作テストはウィンドウを模擬するため画面接続を必要としません。実際のウィンドウ表示やmacOSの拡大処理は、Viewerを起動して別途確認してください。
@@ -318,3 +409,21 @@ GitHub ActionsはpushとPull Requestで、Linux・Python 3.12のテストと、�
 `config/xplus_practical_comparison.yaml`では上記候補、全関節45度・6秒の正弦波、小振幅20度・1.5秒の正弦波を比較できます。それぞれ後半速度0.06318/0.05652/0.05053 m/s、実角度最大44.01/46.33/36.92度でした。
 
 これらは現行モデルで負荷指標を改善した候補です。実機の連続許容トルク、電源電圧、発熱、速度制限、自己接触は未検証であり、トルク飽和0%は実機の安全性を保証しません。実機の60度制限は実測角度でも確認してください。中性浮力なしには同じ推進性能を保証しません。
+
+### 可動域を制限した+X推進の学習
+
+学習は `uv run python -m src.learn_xplus` で再現できます。前回の学習で得た周期1.875秒、位相差−72度、振幅40/30/20/10度の動作を初期値とします。3世代の局所探索で、先頭関節の振幅、周期、最初の位相差に加え、後方の関節ほど振幅をどれだけ小さくするか、隣接関節の位相差をどれだけ変えるかも調整します。世代をまたいで同じパラメータの短時間評価を再利用します。
+
+各候補を12秒動かし、実角度60度以下、追従RMSE12度以下、トルク飽和率1%以下、後半速度が正という条件を満たす中で、重心の+X変位が最大の候補を次世代の中心にします。長時間の評価で追従誤差が増える場合があるため、最終候補は短時間評価のRMSEが11.8度以下のものから選びます。初期値と最終候補を96秒・時間刻み0.5 msで再評価し、制約を満たし+X変位が大きい方を保存します。結果と採用設定の保存先は `output/learn_xplus/` です。
+
+関節とサーボ指令の可動域は±60度、トルク上限は0.18 N·mです。学習済みの動作は次のコマンドで再生できます。
+
+```bash
+uv run mjpython -m src.main --config config/xplus_learned.yaml --realtime
+```
+
+### 計算済みの動きを実時間で見る
+
+計算中でも **R** を押すと、開始位置から計算済みの区間を実時間で再生します。記録の末尾に追いつくと、そこから物理計算を自動で再開します。再生途中でも R で何度でも先頭に戻れます。スペースキーで一時停止・再開できます。記録はウィンドウを閉じるまで有効です。
+
+**D** で先端の移動量を表示・非表示にできます。緑色の球は開始時の先端（5番目のバルーンの＋X側の端）で、線は現在の先端まで伸びます。`Tip` は先端の直線変位の大きさ、`X` はその符号付きX成分です。**G** で機体の中心高さを通る薄い水平グリッド（50 cm間隔、外枠なし）を切り替えられます。

@@ -44,18 +44,26 @@ def control_for(spec):
                  'harmonic': '(sin(p(n,t))+0.3*sin(3*p(n,t)))/0.93',
                  'tail': 'n/4*sin(p(n,t))',
                  'head': '(5-n)/4*sin(p(n,t))'}
+        if 'taper' in spec:
+            waves['head'] = f"(1-(n-1)*{spec['taper']})*sin(p(n,t))"
+        phase_curve = spec.get('phase_curve', 0)
+        timing = 't/T-(n-1)*d'
+        if phase_curve:
+            timing += f'-(n-1)*(n-2)*({phase_curve}/720)'
         c.update(mode='expressions', expression_period=spec['period'],
                  expressions=[f'A = {a}', f'T = {spec["period"]}',
                               f'd = {spec["phase"]}/360',
-                              'u(n,t) = (t/T-(n-1)*d)%1',
+                              f'u(n,t) = ({timing})%1',
                               'p(n,t) = 2*pi*u(n,t)',
                               f'x(n,t) = A*({waves[family]})'])
     return c
 
 
 def evaluate(job):
-    spec, fluid, duration, dt, neutral = job
+    spec, fluid, duration, dt, neutral, *joint_limits = job
     cfg = load_config()
+    if joint_limits:
+        cfg['joint']['range_deg'], = joint_limits
     cfg['control'] = control_for(spec)
     cfg['physics'].update(fluid_model=fluid, neutral=neutral)
     cfg['simulation'].update(duration=duration, timestep=dt)
@@ -102,7 +110,7 @@ def candidates():
 def run_batch(jobs, path, workers):
     results = []
     with ProcessPoolExecutor(max_workers=workers) as pool, path.open('w') as f:
-        for row in pool.map(evaluate, jobs, chunksize=4):
+        for row in pool.map(evaluate, jobs, chunksize=min(4, max(1, len(jobs) // workers))):
             results.append(row)
             f.write(json.dumps(row)+'\n')
             f.flush()

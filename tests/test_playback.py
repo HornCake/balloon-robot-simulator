@@ -251,3 +251,29 @@ def test_viewer_finishes_when_duration_is_not_a_multiple_of_timestep(monkeypatch
     viewer = run_view(monkeypatch, sim, frames=8, return_viewer=True)
     assert viewer.snapshots[-1][0] == pytest.approx(.006)
     assert all(time == pytest.approx(.006) for time, _ in viewer.snapshots[2:])
+
+
+@pytest.mark.parametrize('comparing', [False, True])
+def test_partial_replay_resumes_without_recomputing(monkeypatch, comparing):
+    def simulation():
+        config = load_config()
+        return Comparison(cases_from_config(config)) if comparing else Simulation(config)
+
+    sim = simulation()
+    reference = simulation()
+    step = sim.step
+    computed = []
+
+    def record_step():
+        computed.append(sim.data.time)
+        step()
+
+    monkeypatch.setattr(sim, 'step', record_step)
+    frames = run_view(monkeypatch, sim, keys={6: ord('R'), 9: ord('R')}, frames=28)
+    assert frames[6][0] < frames[5][0]
+    assert frames[9][0] < frames[8][0]
+    assert frames[-1][0] > frames[5][0]
+    assert all(a < b for a, b in zip(computed, computed[1:]))
+    for _ in computed:
+        reference.step()
+    np.testing.assert_array_equal(reference.data.qpos, sim.data.qpos)

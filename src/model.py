@@ -33,8 +33,41 @@ def load_config(path=ROOT / 'config/default.yaml', _parents=None):
     return validate_config(c)
 
 
+def ballast_shares(physics):
+    ratios = np.asarray(physics.get('ballast_ratios', [1] * 5), dtype=float)
+    if (ratios.shape != (5,) or not np.all(np.isfinite(ratios))
+            or np.any(ratios < 0) or ratios.max() == 0):
+        raise ValueError('ballast_ratios は0以上の有限な数を5個指定し、少なくとも1個を正にしてください')
+    scaled = ratios / ratios.max()
+    return scaled / scaled.sum()
+
+
+def tilt_ballast_shares(angle, balloon, physics, spacing, total_ballast):
+    if not np.isfinite(angle) or abs(angle) >= 90:
+        raise ValueError('傾斜角は −90 度より大きく 90 度より小さい値にしてください')
+    if not physics['buoyancy'] or total_ballast <= 0:
+        raise ValueError('角度指定には浮力と正の追加バラスト質量が必要です')
+    # About the middle balloon, the bare bodies and four hinges are symmetric.
+    # At equilibrium the vector from buoyancy center to COM points straight down.
+    displaced_mass = 5 * physics['air_density'] * balloon['volume']
+    offset = (np.array(physics['ballast_position'])
+              - displaced_mass / total_ballast * np.array(balloon['buoyancy_center']))
+    if offset[2] >= 0 or not np.isclose(offset[1], 0):
+        raise ValueError('傾斜角を設定するには重心を浮心の下に置き、Y方向のずれをなくしてください')
+    mean_x = offset[2] * np.tan(np.deg2rad(angle)) - offset[0]
+    fraction = abs(mean_x) / (2 * spacing)
+    if fraction > 1 + 1e-12:
+        raise ValueError('この重りの位置と総量では指定角度につり合わせられません')
+    # Shift just enough of the uniform allocation to the lower end.
+    fraction = min(1., fraction)
+    shares = np.full(5, (1 - fraction) / 5)
+    shares[0 if mean_x < 0 else -1] += fraction
+    return shares
+
+
 def validate_config(c):
     b, j, p, s, ctrl = (c[k] for k in ('balloon', 'joint', 'physics', 'simulation', 'control'))
+    ballast_shares(p)
     scale = ctrl.get('motion_scale', 1.)
     if not np.isfinite(scale) or scale < 0:
         raise ValueError('control.motion_scale must be finite and nonnegative')
@@ -145,6 +178,12 @@ def composite(parts):
     return mass, center, inertia
 
 
+def add_viewer_lighting(root):
+    visual = ET.SubElement(root, 'visual')
+    ET.SubElement(visual, 'headlight', ambient='0.5 0.5 0.5', diffuse='0.55 0.55 0.55')
+    ET.SubElement(visual, 'rgba', haze='0.88 0.92 0.96 1')
+
+
 def build_model(c, directory=None):
     directory = Path(directory) if directory else ROOT / 'models'
     directory.mkdir(parents=True, exist_ok=True)
@@ -164,8 +203,13 @@ def build_model(c, directory=None):
     axes = np.array(b['dimensions']) / 2
     spacing = b['dimensions'][0] + j['gap']
     mass_b = b['film_mass'] + b['helium_density'] * b['volume']
-    ballast = max(0, 5*p['air_density']*b['volume'] - 5*mass_b - 4*j['mass']) / 5 if p['neutral'] else 0
-    if p['neutral'] and 5*p['air_density']*b['volume'] < 5*mass_b + 4*j['mass']:
+    angle = p.get('tilt_deg')
+    neutral = p['neutral'] or angle is not None
+    total_ballast = max(0, 5*p['air_density']*b['volume'] - 5*mass_b - 4*j['mass']) if neutral else 0
+    shares = (tilt_ballast_shares(angle, b, p, spacing, total_ballast)
+              if angle is not None else ballast_shares(p))
+    ballast_masses = total_ballast * shares
+    if neutral and 5*p['air_density']*b['volume'] < 5*mass_b + 4*j['mass']:
         raise ValueError('Neutral buoyancy cannot be achieved by adding ballast')
     root = ET.Element('mujoco', model='five_balloon_robot')
     ET.SubElement(root, 'compiler', angle='radian', inertiafromgeom='false')
@@ -174,10 +218,13 @@ def build_model(c, directory=None):
                   # viscous forces to avoid counting quadratic drag twice.
                   density=str(p['air_density'] if p['fluid'] and not surface_drag else 0),
                   viscosity=str(p['viscosity'] if p['fluid'] else 0), wind=fmt(p['wind']))
+    add_viewer_lighting(root)
     assetnode = ET.SubElement(root, 'asset')
+    ET.SubElement(assetnode, 'texture', type='skybox', builtin='gradient',
+                  rgb1='0.73 0.83 0.93', rgb2='0.94 0.96 0.98', width='128', height='128')
     ET.SubElement(assetnode, 'mesh', **mesh_attributes)
     ET.SubElement(assetnode, 'texture', name='ground_checker', type='2d', builtin='checker',
-                  rgb1='0.3 0.35 0.4', rgb2='0.65 0.7 0.75', width='512', height='512')
+                  rgb1='0.38 0.44 0.51', rgb2='0.74 0.79 0.84', width='512', height='512')
     ET.SubElement(assetnode, 'material', name='ground_material', texture='ground_checker',
                   texrepeat='1 1', texuniform='true', reflectance='0.1')
     world = ET.SubElement(root, 'worldbody')
@@ -185,15 +232,21 @@ def build_model(c, directory=None):
     # Visual reference only: keep free-flight dynamics and collision settings.
     ET.SubElement(world, 'geom', name='ground', type='plane', pos='0 0 0', size='0 0 0.1',
                   material='ground_material', contype='0', conaffinity='0')
+    limit = np.deg2rad(j.get("range_deg", 90.0))
+    if not np.isfinite(limit) or limit <= 0:
+        raise ValueError("joint.range_deg must be finite and positive")
+    joint_range = fmt([-limit, limit])
     parent = world
     for i in range(5):
         body = ET.SubElement(parent, 'body', name=f'balloon_{i+1}',
                              pos=fmt([0,0,s['initial_height']] if i == 0 else [spacing,0,0]))
         if i == 0:
+            if angle is not None:
+                body.set('axisangle', fmt([0, 1, 0, -np.deg2rad(angle)]))
             ET.SubElement(body, 'freejoint', name='root')
         else:
             ET.SubElement(body, 'joint', name=f'joint_{i}', type='hinge', axis='0 1 0',
-                          pos=fmt([-spacing/2,0,0]), range=fmt([-np.pi/2,np.pi/2]), damping=str(j['damping']))
+                          pos=fmt([-spacing/2,0,0]), range=joint_range, damping=str(j['damping']))
         tensor = np.diag(mass_b/5 * (np.sum(axes**2) - axes**2))
         parts = [(mass_b, np.zeros(3), tensor)]
         if i:
@@ -203,6 +256,7 @@ def build_model(c, directory=None):
             ET.SubElement(body, 'geom', type='cylinder', size=fmt([r,h/2]),
                           pos=fmt([-spacing/2,0,0]), quat='0.70710678 0.70710678 0 0',
                           contype='0', conaffinity='0', rgba='0.2 0.2 0.2 1')
+        ballast = ballast_masses[i]
         if ballast:
             parts.append((ballast, np.array(p['ballast_position']), np.zeros((3,3))))
             ET.SubElement(body, 'geom', type='sphere', size='0.012', pos=fmt(p['ballast_position']),
@@ -219,10 +273,14 @@ def build_model(c, directory=None):
         ET.SubElement(body, 'site', name=f'buoyancy_{i+1}', pos=fmt(b['buoyancy_center']),
                       size='0.008', rgba='1 0.3 0.1 1', group='4')
         parent = body
+    if angle is not None and c['control']['mode'] == 'fixed' and not any(c['control']['fixed_deg']):
+        locks = ET.SubElement(root, 'equality')
+        for i in range(1, 5):
+            ET.SubElement(locks, 'joint', joint1=f'joint_{i}', polycoef='0 0 0 0 0')
     actuators = ET.SubElement(root, 'actuator')
     for i in range(1,5):
         ET.SubElement(actuators, 'position', name=f'servo_{i}', joint=f'joint_{i}',
-                      kp=str(j['kp']), kv=str(j['kv']), ctrllimited='true', ctrlrange=fmt([-np.pi/2,np.pi/2]),
+                      kp=str(j['kp']), kv=str(j['kv']), ctrllimited='true', ctrlrange=joint_range,
                       forcelimited='true', forcerange=fmt([-j['torque_limit'],j['torque_limit']]))
     ET.indent(root)
     path = directory / 'balloon_robot.xml'

@@ -16,6 +16,7 @@ balloon:
   buoyancy_center: [0, 0, 0]
   inertia_model: solid_ellipsoid
 joint:
+  range_deg: 90  # 関節とサーボ指令の片側可動角 [deg]
   gap: 0.010  # 隣接バルーンの端と端の隙間 [m]
   mass: 0.022
   radius: 0.018
@@ -27,6 +28,7 @@ joint:
 physics:
   buoyancy: true
   neutral: false
+  ballast_ratios: [1, 1, 1, 1, 1]  # 中性浮力時の重りの配分比（1〜5番順）
   ballast_position: [0, 0, -0.150]  # 下部に取り付ける重りの重心位置 [m]
   fluid: true
   fluid_model: mesh_surface  # OBJの各三角形から表面抵抗を計算。ellipsoidで従来方式

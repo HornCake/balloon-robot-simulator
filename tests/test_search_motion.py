@@ -41,3 +41,12 @@ def test_search_step_preserves_simulation_trajectory(fluid):
         search_step(fast)
     np.testing.assert_array_equal(fast.data.qpos, original.data.qpos)
     np.testing.assert_array_equal(fast.data.qvel, original.data.qvel)
+
+
+def test_head_wave_uses_joint_specific_amplitudes_and_phase_offsets():
+    spec = dict(family='head', amplitude=42, period=1.875, phase=-64, taper=.2, phase_curve=-12)
+    control = control_for(spec)
+    for t in [0., .24, spec['period']]:
+        phase = 2 * np.pi * t / spec['period'] - np.deg2rad([0, -64, -140, -228])
+        expected = np.deg2rad([42, 33.6, 25.2, 16.8]) * np.sin(phase)
+        np.testing.assert_allclose(targets(t, control), expected, atol=1e-12)

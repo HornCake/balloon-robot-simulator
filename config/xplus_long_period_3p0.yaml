@@ -1,0 +1,87 @@
+simulation:
+  duration: 96.0
+  timestep: 0.0005
+  initial_height: 3.0
+  gravity: 9.81
+balloon:
+  dimensions:
+  - 0.45
+  - 0.65
+  - 0.3
+  mesh_file: assets/balloon_87.obj
+  mesh_scale:
+  - 1
+  - 1
+  - 1
+  mesh_rotation_deg:
+  - 0
+  - 0
+  - 0
+  mesh_center: true
+  mesh_fit_dimensions: false
+  volume: 0.07
+  film_mass: 0.026
+  helium_density: 0.166
+  buoyancy_center:
+  - 0
+  - 0
+  - 0
+  inertia_model: solid_ellipsoid
+joint:
+  range_deg: 60
+  gap: 0.01
+  mass: 0.022
+  radius: 0.018
+  length: 0.05
+  damping: 0.002
+  kp: 0.3
+  kv: 0.03
+  torque_limit: 0.18
+physics:
+  buoyancy: true
+  neutral: true
+  ballast_position:
+  - 0
+  - 0
+  - -0.15
+  fluid: true
+  fluid_model: mesh_surface
+  surface_drag_coefficient: 1.0
+  air_density: 1.205
+  viscosity: 1.81e-05
+  wind:
+  - 0
+  - 0
+  - 0
+  fluid_coefficients:
+  - 0.5
+  - 0.25
+  - 1.5
+  - 1.0
+  - 1.0
+control:
+  mode: expressions
+  period: 3.0
+  amplitude_deg: 30
+  frequency: 0.5
+  phase_step_deg: -45
+  phases_deg:
+  - 0
+  - 0
+  - 0
+  - 0
+  fixed_deg:
+  - 0
+  - 0
+  - 0
+  - 0
+  bend_fraction: 0.25
+  motion_scale: 1.0
+  expression_period: 3.0
+  expressions:
+  - A = 45
+  - T = 3.0
+  - d = -54/360
+  - u(n,t) = (t/T-(n-1)*d-(n-1)*(n-2)*(-33/720))%1
+  - p(n,t) = 2*pi*u(n,t)
+  - x(n,t) = A*((1-(n-1)*0.060000000000000005)*sin(p(n,t)))

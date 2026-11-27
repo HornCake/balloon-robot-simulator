@@ -10,7 +10,7 @@ import numpy as np
 import yaml
 
 from .logger import Logger
-from .model import build_model, load_config, validate_config, merge_config
+from .model import add_viewer_lighting, build_model, load_config, validate_config, merge_config
 from .simulation import Simulation
 from .motion_patterns import apply_pattern
 
@@ -96,8 +96,7 @@ class Comparison:
         root = ET.Element('mujoco', model='air_resistance_comparison_display')
         ET.SubElement(root, 'compiler', angle='radian', inertiafromgeom='false')
         ET.SubElement(root, 'option', timestep=str(timestep), gravity='0 0 0', density='0', viscosity='0')
-        visual = ET.SubElement(root, 'visual')
-        ET.SubElement(visual, 'headlight', ambient='0.45 0.45 0.45', diffuse='0.6 0.6 0.6')
+        add_viewer_lighting(root)
         assets = ET.SubElement(root, 'asset')
         world = ET.SubElement(root, 'worldbody')
         ET.SubElement(world, 'light', pos='0 -3 8', dir='0 0 -1')
@@ -106,8 +105,10 @@ class Comparison:
                 path = build_model(sim.config, Path(directory) / str(index))
                 source = ET.parse(path).getroot()
                 prefix = f'case_{index}_'
-                asset_names = {node.get('name') for node in source.find('asset')}
+                asset_names = {node.attrib['name'] for node in source.find('asset') if 'name' in node.attrib}
                 for node in source.find('asset'):
+                    if index > 0 and node.tag == 'texture' and node.get('type') == 'skybox':
+                        continue
                     node = deepcopy(node)
                     for element in node.iter():
                         for attribute in ('name', 'texture', 'material', 'mesh'):

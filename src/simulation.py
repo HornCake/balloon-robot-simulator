@@ -16,13 +16,32 @@ class Simulation:
         self.body_ids = [self.model.body(f'balloon_{i}').id for i in range(1, 6)]
         self.surface_drag = (MeshSurfaceDrag(self.model, config)
                              if config['physics'].get('fluid_model', 'ellipsoid') == 'mesh_surface' else None)
+        # Track the outermost +X vertex of the last balloon in body coordinates.
+        tip_body = self.body_ids[-1]
+        geom = next(i for i in range(self.model.ngeom)
+                    if self.model.geom_bodyid[i] == tip_body
+                    and self.model.geom_type[i] == mujoco.mjtGeom.mjGEOM_MESH
+                    and self.model.geom_group[i] != 3)
+        mesh = self.model.geom_dataid[geom]
+        first = self.model.mesh_vertadr[mesh]
+        vertices = self.model.mesh_vert[first:first + self.model.mesh_vertnum[mesh]]
+        rotation = np.empty(9)
+        mujoco.mju_quat2Mat(rotation, self.model.geom_quat[geom])
+        local = vertices @ rotation.reshape(3, 3).T + self.model.geom_pos[geom]
+        self.local_tip = local[np.argmax(local[:, 0])]
         self.reset()
 
     def reset(self):
         mujoco.mj_resetData(self.model, self.data)
         self.refresh()
+        self.initial_tip = self.tip_position
         self.initial_joint_angles = self.data.qpos[7:].copy()
         self.initial_center_of_mass = self.center_of_mass.copy()
+
+    @property
+    def tip_position(self):
+        body = self.body_ids[-1]
+        return self.data.xpos[body] + self.data.xmat[body].reshape(3, 3) @ self.local_tip
 
     def refresh(self):
         mujoco.mj_forward(self.model, self.data)

@@ -65,3 +65,12 @@ def test_config_with_japanese_names_uses_utf8(tmp_path):
     path.write_text(f'extends: {ROOT / "config/default.yaml"}\n'
                     'comparison:\n  cases:\n    - name: 表面抵抗\n', encoding='utf-8')
     assert load_config(path)['comparison']['cases'][0]['name'] == '表面抵抗'
+
+
+def test_joint_range_limits_hinges_and_servo_commands():
+    cfg = load_config()
+    cfg['joint']['range_deg'] = 60
+    sim = Simulation(cfg)
+    expected = np.tile(np.deg2rad([-60, 60]), (4, 1))
+    np.testing.assert_allclose(sim.model.jnt_range[1:], expected)
+    np.testing.assert_allclose(sim.model.actuator_ctrlrange, expected)

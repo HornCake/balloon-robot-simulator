@@ -140,3 +140,29 @@ def test_default_gait_propels_positive_x_and_phase_reversal_changes_direction(me
         displacement.append(sim.center_of_mass[0] - initial)
     assert displacement[0] > .03
     assert displacement[1] < -.03
+
+
+@pytest.mark.parametrize('angle', [-30., 0., 20.])
+def test_straight_trim_equilibrium(angle):
+    c = config()
+    c['physics']['tilt_deg'] = angle
+    sim = Simulation(c)
+    assert sim.model.body_mass.sum() == pytest.approx(sim.forces.sum() / 9.81)
+    def check_tilt():
+        span = sim.data.xpos[sim.body_ids[-1]] - sim.data.xpos[sim.body_ids[0]]
+        assert np.rad2deg(np.arctan2(span[2], span[0])) == pytest.approx(angle)
+
+    check_tilt()
+    sim.data.qpos[3:7] = [0, 1, 0, 0]
+    sim.reset()
+    check_tilt()
+    applied = sim.data.qfrc_applied - sim.data.qfrc_bias
+    np.testing.assert_allclose(applied[:6], 0, atol=1e-7)
+    assert sim.model.neq == 4
+
+
+def test_unreachable_trim_angle():
+    c = config()
+    c['physics']['tilt_deg'] = 85
+    with pytest.raises(ValueError, match='指定角度'):
+        Simulation(c)

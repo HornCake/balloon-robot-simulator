@@ -1,3 +1,4 @@
+from bisect import bisect_right
 import time
 import mujoco
 import numpy as np
@@ -92,6 +93,83 @@ def status_overlay(sim, wall_time=0., focus=None):
             '\n'.join(labels), '\n'.join(values))
 
 
+class MotionReplay:
+    """Display snapshots from the computed portion of the run in this viewer."""
+    def __init__(self, sim):
+        self.cases = getattr(sim, 'simulations', [sim])
+        self.times = []
+        self.frames = []
+        self.record(sim)
+
+    def record(self, sim):
+        self.times.append(sim.data.time)
+        self.frames.append([(case.data.qpos.copy(), case.data.qvel.copy())
+                            for case in self.cases])
+
+    def show(self, sim, elapsed):
+        index = max(0, bisect_right(self.times, elapsed) - 1)
+        for case, (position, velocity) in zip(self.cases, self.frames[index]):
+            case.data.time = self.times[index]
+            case.data.qpos[:] = position
+            case.data.qvel[:] = velocity
+            mujoco.mj_kinematics(case.model, case.data)
+            mujoco.mj_comPos(case.model, case.data)
+        if hasattr(sim, 'sync_display'):
+            sim.sync_display()
+
+
+def draw_displacement(scene, sim, focus):
+    cases = getattr(sim, 'simulations', [sim])
+    for index, case in enumerate(cases):
+        if focus is not None and index != focus:
+            continue
+        offset = sim.offsets[index] if hasattr(sim, 'offsets') else 0
+        origin = case.initial_tip + offset
+        current = case.tip_position + offset
+        delta = current - origin
+        color = np.array([.2, .9, .75, 1.])
+        for kind, location in [(mujoco.mjtGeom.mjGEOM_SPHERE, origin),
+                               (mujoco.mjtGeom.mjGEOM_LINE, origin),
+                               (mujoco.mjtGeom.mjGEOM_LABEL, current + [0, 0, -.4])]:
+            if scene.ngeom >= scene.maxgeom:
+                return
+            item = scene.geoms[scene.ngeom]
+            mujoco.mjv_initGeom(item, kind, np.full(3, .045), location, np.eye(3).ravel(), color)
+            if kind == mujoco.mjtGeom.mjGEOM_LINE:
+                if np.linalg.norm(current - origin) < 1e-9:
+                    continue
+                mujoco.mjv_connector(item, kind, 3., origin, current)
+            elif kind == mujoco.mjtGeom.mjGEOM_LABEL:
+                item.label = f'Tip: {np.linalg.norm(delta):.2f} m   X: {delta[0]:+.2f} m'
+            scene.ngeom += 1
+
+
+def draw_local_grid(scene, sim, focus):
+    cases = getattr(sim, 'simulations', [sim])
+    for index, case in enumerate(cases):
+        if focus is not None and index != focus:
+            continue
+        offset = sim.offsets[index] if hasattr(sim, 'offsets') else 0
+        positions = case.data.xpos[case.body_ids] + offset
+        spacing = .5
+        low = np.floor(positions.min(axis=0) / spacing) - 3
+        high = np.ceil(positions.max(axis=0) / spacing) + 3
+        z = positions[:, 2].mean()
+        for axis in (0, 1):
+            for tick in range(int(low[axis]) + 1, int(high[axis])):
+                if scene.ngeom >= scene.maxgeom:
+                    return
+                start, end = low * spacing, high * spacing
+                start[axis] = end[axis] = tick * spacing
+                start[2] = end[2] = z
+                item = scene.geoms[scene.ngeom]
+                kind = mujoco.mjtGeom.mjGEOM_LINE
+                mujoco.mjv_initGeom(item, kind, np.zeros(3), start, np.eye(3).ravel(),
+                                    np.array([.15, .19, .25, .7]))
+                mujoco.mjv_connector(item, kind, 1., start, end)
+                scene.ngeom += 1
+
+
 def view(sim, logger, realtime=True, camera='overview', start_paused=False, start_delay=0,
          x_direction='right', projection=None, focus_case=None, side_all=False, maximize=True):
     import mujoco.viewer
@@ -120,6 +198,10 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
                 state['paused'] = False
             else:
                 state['paused'] = not state['paused']
+        elif keycode in (ord('G'), ord('g')):
+            state['grid'] = not state.get('grid', True)
+        elif keycode in (ord('D'), ord('d')):
+            state['distance'] = not state.get('distance', True)
         elif keycode in (ord('R'), ord('r')):
             state['reset'] = True
         elif keycode in (ord('F'), ord('f')):
@@ -144,6 +226,7 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
         previous_camera = None
         previous_fluid = None
         previous_focus = object()
+        previous_grid = None
         previous_overlay = None
         orthographic_scale = 1.
         # Start counting after the window is open, so launch time is not charged.
@@ -155,11 +238,23 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
             print(f'Holding initial state for {start_delay:g} s. Press Space to start now.')
         print('F: toggle air-resistance geometry (orange; model approximation applies)')
         print('1: perspective overview; 2: true side; 3: follow; 4: top; Tab / [ / ]: case; A: all in side view; 0: all in overview')
+        replay = MotionReplay(sim)
+        playing_recording = False
+        announced = False
+        print('R: replay computed motion, then continue. D: tip displacement. G: local grid.')
         while viewer.is_running():
             start = time.monotonic()
             if state['reset']:
-                sim.reset()
-                logger.record(sim)  # time returning to zero marks a new episode
+                if replay.times[-1] == 0:
+                    sim.reset()
+                    replay = MotionReplay(sim)
+                if not playing_recording:
+                    # Keep the full integration state only at the computed frontier.
+                    frontier = [mujoco.MjData(case.model) for case in replay.cases]
+                    for case, saved in zip(replay.cases, frontier):
+                        mujoco.mj_copyData(saved, case.model, case.data)
+                replay.show(sim, 0.)
+                playing_recording = True
                 state['reset'] = False
                 previous_camera = None
                 playback_clock = PlaybackClock(start)
@@ -174,7 +269,17 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
             finished = sim.data.time >= sim.config['simulation']['duration'] - 1e-10
             running = not state['paused'] and not state['waiting'] and not finished
             playback_clock.update(start, running)
-            if running:
+            if running and playing_recording:
+                display_time = playback_clock.elapsed + FRAME_INTERVAL
+                if display_time < replay.times[-1]:
+                    replay.show(sim, display_time)
+                else:
+                    for case, saved in zip(replay.cases, frontier):
+                        mujoco.mj_copyData(case.data, case.model, saved)
+                    if hasattr(sim, 'sync_display'):
+                        sim.sync_display()
+                    playing_recording = False
+            elif running:
                 # Batch physics steps between display frames. Updating the
                 # viewer every 2 ms made rendering throttle simulation time.
                 target_time = (playback_clock.elapsed + FRAME_INTERVAL if realtime
@@ -192,7 +297,12 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
                     logger.record(sim)
                     if time.monotonic() - start >= FRAME_INTERVAL:
                         break
+                if sim.data.time > replay.times[-1]:
+                    replay.record(sim)
             finished = sim.data.time >= sim.config['simulation']['duration'] - 1e-10
+            if finished and not announced:
+                print('Recording ready. Press R to replay at real-time speed.', flush=True)
+                announced = True
             playback_clock.update(time.monotonic(), running and not finished)
             with viewer.lock():
                 focus = active_case()
@@ -201,8 +311,15 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
                 if hasattr(sim, 'draw_annotations'):
                     sim.draw_annotations(viewer.user_scn, focus=focus, x_direction=x_direction,
                                          top=state['camera'] == 'top', side_overlay=side_overlay)
+                else:
+                    viewer.user_scn.ngeom = 0
+                if state.get('distance', True):
+                    draw_displacement(viewer.user_scn, sim, focus)
+                grid_visible = state.get('grid', True)
+                if grid_visible:
+                    draw_local_grid(viewer.user_scn, sim, focus)
                 if (state['fluid'] != previous_fluid or focus != previous_focus
-                        or side_overlay != previous_overlay):
+                        or side_overlay != previous_overlay or grid_visible != previous_grid):
                     viewer.opt.geomgroup[3] = int(state['fluid'])
                     sim.model.geom_rgba[:] = geom_rgba
                     sim.model.site_rgba[:] = site_rgba
@@ -214,6 +331,13 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
                             sim.model.geom_rgba[ids, 3] = .35
                         if state['fluid']:
                             sim.model.geom_rgba[mesh_ids, 3] = .1
+                    if grid_visible and not side_overlay:
+                        # An opaque surface writes depth before the translucent grid.
+                        if state['fluid']:
+                            sim.model.geom_rgba[sim.model.geom_group == 3, 3] = 1.
+                        else:
+                            sim.model.geom_rgba[mesh_ids, 3] = 1.
+                    previous_grid = grid_visible
                     if focus is not None:
                         for index in range(len(sim.simulations)):
                             if index != focus:
@@ -233,11 +357,13 @@ def view(sim, logger, realtime=True, camera='overview', start_paused=False, star
                     previous_camera = state['camera']
                 previous_focus = focus
                 update_camera(sim, viewer.cam, state['camera'], orthographic_scale, focus)
-            viewer.set_texts(status_overlay(sim, playback_clock.elapsed, focus))
+            font, grid, labels, values = status_overlay(sim, playback_clock.elapsed, focus)
+            mode = 'R: replay at 1x' if finished else 'Replay (1x)' if playing_recording else 'Recording'
+            viewer.set_texts((font, grid, labels + '\nPlayback', values + '\n' + mode))
             viewer.sync()
             if state['paused'] or state['waiting'] or finished:
                 playback_clock.update(time.monotonic(), False)
-            delay = FRAME_INTERVAL - (time.monotonic()-start) if realtime else 0
+            delay = FRAME_INTERVAL - (time.monotonic()-start) if realtime or playing_recording else 0
             if state['paused'] or state['waiting'] or finished:
                 delay = 0.02
             if delay > 0:
